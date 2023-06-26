@@ -345,28 +345,72 @@ next
     then show ?thesis ..
   qed
 next
-  case (Composition P Q)
+  case (Composition P Q \<mu>)
   from this(3) show ?case
   proof cases
     case (ObsOut x)
-    then obtain R where \<open>\<^bold>!(P \<^bold>| Q) \<midarrow>x\<^bold>!\<rightarrow> R\<close> by blast
+    then obtain R where *: \<open>\<^bold>!(P \<^bold>| Q) \<midarrow>x\<^bold>!\<rightarrow> R\<close> by blast
     then show ?thesis
     proof (cases \<open>observable (\<^bold>!P) \<mu>\<close>)
       case True
       then show ?thesis
         using Composition.IH TParL observable.simps by metis
     next
-      case False
-      then have \<open>observable (\<^bold>!Q) \<mu>\<close>
-        using ObsOut Composition.prems
-        using Composition.IH
-        sorry
+      case PF: False
       then show ?thesis
-        using Composition.IH TParR observable.simps by metis
+      proof (cases \<open>observable (\<^bold>!Q) \<mu>\<close>)
+        case True
+        then show ?thesis
+          using Composition.IH TParR observable.simps by metis
+      next
+        case False
+        then have NQ: \<open>\<nexists>Q'. Q \<midarrow>x\<^bold>!\<rightarrow> Q'\<close>
+          using ObsOut by blast
+        moreover from PF have NP: \<open>\<nexists>P'. P \<midarrow>x\<^bold>!\<rightarrow> P'\<close>
+          using ObsOut by blast
+        moreover from * have \<open>(P \<midarrow>x\<^bold>!\<rightarrow> R) \<or> (Q \<midarrow>x\<^bold>!\<rightarrow> R)\<close>
+        proof (cases rule: transition.cases)
+          case (TRep P')
+          then show ?thesis
+            using NP NQ par_add_obs observable.simps by blast
+        qed
+        ultimately have False
+          by blast
+        then show ?thesis ..
+      qed
     qed
   next
     case (ObsIn x)
-    then show ?thesis sorry
+    then obtain R where *: \<open>\<^bold>!(P \<^bold>| Q) \<midarrow>x\<^bold>?\<rightarrow> R\<close> by blast
+    then show ?thesis
+    proof (cases \<open>observable (\<^bold>!P) \<mu>\<close>)
+      case True
+      then show ?thesis
+        using Composition.IH TParL observable.simps by metis
+    next
+      case PF: False
+      then show ?thesis
+      proof (cases \<open>observable (\<^bold>!Q) \<mu>\<close>)
+        case True
+        then show ?thesis
+          using Composition.IH TParR observable.simps by metis
+      next
+        case False
+        then have NQ: \<open>\<nexists>Q'. Q \<midarrow>x\<^bold>?\<rightarrow> Q'\<close>
+          using ObsIn by blast
+        moreover from PF have NP: \<open>\<nexists>P'. P \<midarrow>x\<^bold>?\<rightarrow> P'\<close>
+          using ObsIn by blast
+        moreover from * have \<open>(P \<midarrow>x\<^bold>?\<rightarrow> R) \<or> (Q \<midarrow>x\<^bold>?\<rightarrow> R)\<close>
+        proof (cases rule: transition.cases)
+          case (TRep P')
+          then show ?thesis
+            using NP NQ par_add_obs observable.simps by blast
+        qed
+        ultimately have False
+          by blast
+        then show ?thesis ..
+      qed
+    qed
   qed
 next
   case (Replicate P)
@@ -377,11 +421,18 @@ next
     then show ?thesis
     proof (cases)
       case (TRep P')
-      then show ?thesis using ObsOut Replicate.IH sorry
+      then show ?thesis using ObsOut Replicate.IH
+        by blast
     qed
   next
     case (ObsIn x)
-    then show ?thesis sorry
+    then obtain R where \<open>\<^bold>!\<^bold>!P \<midarrow>x\<^bold>?\<rightarrow> R\<close> by blast
+    then show ?thesis
+    proof (cases)
+      case (TRep P')
+      then show ?thesis using ObsIn Replicate.IH
+        by blast
+    qed
   qed
 qed
 
@@ -402,7 +453,8 @@ next
     by cases auto
 next
   case (Replicate P)
-  then show ?case sorry
+  then show ?case
+    using names.simps(5) rep_preserves_obs by blast
 qed simp
 
 definition sim (\<open>_ \<sim>[_]\<leadsto> _\<close>) where
