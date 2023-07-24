@@ -515,7 +515,7 @@ monos monoCoinduct
 abbreviation bisimulation (\<open>_ \<sim> _\<close> [60,60] 40) where
   \<open>P \<sim> Q \<equiv> (P,Q) \<in> bisim\<close>
 
-lemma bisimCoinduct [case_names bisim bisym, consumes 1]:
+lemma bisimCoinduct [case_names bisim sym, consumes 1]:
   assumes pq: \<open>(P,Q) \<in> X\<close>
     and sim: \<open>\<And>R S. (R,S) \<in> X \<Longrightarrow> R \<sim>[X \<union> bisim]\<leadsto> S\<close>
     and sym: \<open>\<And>R S. (R,S) \<in> X \<Longrightarrow> (S,R) \<in> X\<close>
@@ -561,7 +561,7 @@ proof
     then show ?case
       by (metis bisim_E prod.inject relcompE sim_trans sup_ge1)
   next
-    case (bisym R S)
+    case (sym R S)
     then show ?case
       using bisim_sym sympE[of bisimulation] by auto
   qed
@@ -686,30 +686,81 @@ proof -
           using bisim
         proof (cases R)
           case (Composition P Q)
-          then have R: \<open>R = ((\<^bold>!(x\<^bold>!.\<zero>)) \<^bold>| (\<^bold>!(x\<^bold>?.\<zero>)))\<close>
+          then have R: \<open>R = ?Q\<close>
             using bisim by simp
           then show ?thesis using bisim
           proof (cases S)
             case (Replicate P')
-            then have \<open>S = \<^bold>!((x\<^bold>!.\<zero>)\<^bold>|(x\<^bold>?.\<zero>))\<close>
+            then have \<open>S = ?P\<close>
               using bisim by simp
-            moreover from OOut * have \<open>x' = x\<close> sorry
+            moreover from OOut * have \<open>x' = x\<close>
+              by (metis R in_not_obs_out obs_out_eq par_add_obs rep_preserves_obs)
             ultimately show ?thesis using * R OOut
               by blast
           qed simp_all
         next
           case (Replicate P')
-          then show ?thesis sorry
+          then have R: \<open>R = ?P\<close>
+            using bisim by simp
+          then show ?thesis using bisim
+          proof (cases S)
+            case (Composition P Q)
+            then have \<open>S = ?Q\<close>
+              using bisim by simp
+            moreover from OOut * have \<open>x' = x\<close>
+              by (metis R in_not_obs_out obs_out_eq par_add_obs rep_preserves_obs)
+            ultimately show ?thesis using * R OOut by blast
+          qed simp_all
         qed simp_all
       next
         case (OIn x')
-        then show ?thesis using bisim * sorry
+        then show ?thesis
+          using bisim
+        proof (cases R)
+          case (Composition P Q)
+          then have R: \<open>R = ?Q\<close>
+            using bisim by simp
+          then show ?thesis using bisim
+          proof (cases S)
+            case (Replicate P')
+            then have \<open>S = ?P\<close>
+              using bisim by simp
+            moreover from OIn * have \<open>x' = x\<close>
+              by (metis R obs_in_eq out_not_obs_in par_add_obs rep_preserves_obs)
+            ultimately show ?thesis using * R OIn
+              by blast
+          qed simp_all
+        next
+          case (Replicate P')
+          then have R: \<open>R = ?P\<close>
+            using bisim by simp
+          then show ?thesis using bisim
+          proof (cases S)
+            case (Composition P Q)
+            then have \<open>S = ?Q\<close>
+              using bisim by simp
+            moreover from OIn * have \<open>x' = x\<close>
+              by (metis R obs_in_eq out_not_obs_in par_add_obs rep_preserves_obs)
+            ultimately show ?thesis using * R OIn by blast
+          qed simp_all
+        qed simp_all
       qed
     next
       fix R'
       assume \<open>R \<midarrow>\<tau>\<rightarrow> R'\<close>
       then show \<open>\<exists>S'. (S \<midarrow>\<tau>\<rightarrow> S') \<and> (S',R') \<in> ?R\<close>
-        using bisim sorry
+        using bisim
+      proof (cases S)
+        case (Composition P Q)
+        then have S: \<open>S = ?Q\<close> using bisim by simp
+        then have \<open>S \<midarrow>\<tau>\<rightarrow> (\<zero> \<^bold>| \<^bold>!(x\<^bold>!.\<zero>)) \<^bold>| (\<zero> \<^bold>| \<^bold>!(x\<^bold>?.\<zero>))\<close>
+          by blast
+        then show ?thesis
+          sorry
+      next
+        case (Replicate P)
+        then show ?thesis sorry
+      qed simp_all
     qed
     then show ?case
       using monotonic by blast
@@ -744,6 +795,40 @@ primrec apply_ctx (\<open>_\<lbrakk>_\<rbrakk>\<close> [50, 50] 60) where
 | \<open>apply_ctx (CComposition C1 C2) P = Composition (apply_ctx C1 P) (apply_ctx C2 P)\<close>
 | \<open>apply_ctx (CReplicate C) P = Replicate (apply_ctx C P)\<close>
 
+lemma apply_ctx_no_holes [simp]: \<open>ctx_holes C = 0 \<Longrightarrow> apply_ctx C P = apply_ctx C Q\<close>
+  by (induction C) simp_all
+
+primrec apply_ctx_ctx where
+  \<open>apply_ctx_ctx CHole C' = C'\<close>
+| \<open>apply_ctx_ctx CInaction C' = CInaction\<close>
+| \<open>apply_ctx_ctx (COut x C) C' = COut x (apply_ctx_ctx C C')\<close>
+| \<open>apply_ctx_ctx (CIn x C) C' = CIn x (apply_ctx_ctx C C')\<close>
+| \<open>apply_ctx_ctx (CComposition C1 C2) C' = CComposition (apply_ctx_ctx C1 C') (apply_ctx_ctx C2 C')\<close>
+| \<open>apply_ctx_ctx (CReplicate C) C' = CReplicate (apply_ctx_ctx C C')\<close>
+
+lemma apply_ctx_ctx_no_holes [simp]: \<open>ctx_holes C = 0 \<Longrightarrow> apply_ctx_ctx C C' = C\<close>
+  by (induction C) simp_all
+
+lemma apply_ctx_ctx_wf [simp]: \<open>wf_ctx C \<Longrightarrow> wf_ctx C' \<Longrightarrow> wf_ctx (apply_ctx_ctx C C')\<close>
+proof (induction C)
+  case (CComposition C1 C2)
+  then show ?case
+    using add_is_1 by fastforce
+qed simp_all
+
+primrec process_to_ctx where
+  \<open>process_to_ctx Inaction = CInaction\<close>
+| \<open>process_to_ctx (Out x P) = COut x (process_to_ctx P)\<close>
+| \<open>process_to_ctx (In x P) = CIn x (process_to_ctx P)\<close>
+| \<open>process_to_ctx (Composition P Q) = CComposition (process_to_ctx P) (process_to_ctx Q)\<close>
+| \<open>process_to_ctx (Replicate P) = CReplicate (process_to_ctx P)\<close>
+
+lemma process_to_ctx_apply[simp]: \<open>\<forall>R. (process_to_ctx P)\<lbrakk>R\<rbrakk> = P\<close>
+  by (induction P) simp_all
+
+lemma process_to_ctx_0_holes[simp]: \<open>ctx_holes (process_to_ctx P) = 0\<close>
+  by (induction P) simp_all
+
 definition congruence where
   \<open>congruence S \<equiv> (\<forall>(P,Q) \<in> S. (\<forall>C. wf_ctx C \<longrightarrow> (C\<lbrakk>P\<rbrakk>, C\<lbrakk>Q\<rbrakk>) \<in> S))\<close>
 
@@ -752,17 +837,141 @@ section \<open>Strong barbed congruence\<close>
 coinductive_set sbcong where
   \<open>(\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>) \<Longrightarrow> (P,Q) \<in> sbcong\<close>
 
-abbreviation sbcongruence (\<open>_ \<simeq> _\<close> [50, 50] 70) where
+abbreviation sbcongruence (\<open>_ \<simeq> _\<close> [50, 50] 55) where
   \<open>P \<simeq> Q \<equiv> (P,Q) \<in> sbcong\<close>
+
+lemma sbcong_E [elim]: \<open>P \<simeq> Q \<Longrightarrow> wf_ctx C \<Longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+  by (meson sbcong.cases)
+
+lemma sbcong_out [simp]: \<open>P \<simeq> Q \<Longrightarrow> (x\<^bold>!.P) \<simeq> (x\<^bold>!.Q)\<close>
+proof (coinduction)
+  case sbcong
+  then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+    by auto
+  then have \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>x\<^bold>!.P\<rbrakk> \<sim> C\<lbrakk>x\<^bold>!.Q\<rbrakk>\<close>
+  proof (clarify)
+    fix C
+    let ?C = \<open>apply_ctx_ctx C (COut x CHole)\<close>
+    assume \<open>wf_ctx C\<close>
+    then have \<open>wf_ctx ?C\<close>
+      by simp
+    moreover have \<open>C\<lbrakk>x\<^bold>!.P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    moreover have \<open>C\<lbrakk>x\<^bold>!.Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    ultimately show \<open>C\<lbrakk>x\<^bold>!.P\<rbrakk> \<sim> C\<lbrakk>x\<^bold>!.Q\<rbrakk>\<close>
+      using * by simp
+  qed
+  then show ?case
+    by blast
+qed
+
+lemma sbcong_in [simp]: \<open>P \<simeq> Q \<Longrightarrow> (x\<^bold>?.P) \<simeq> (x\<^bold>?.Q)\<close>
+proof (coinduction)
+  case sbcong
+  then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+    by auto
+  then have \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>x\<^bold>?.P\<rbrakk> \<sim> C\<lbrakk>x\<^bold>?.Q\<rbrakk>\<close>
+  proof (clarify)
+    fix C
+    let ?C = \<open>apply_ctx_ctx C (CIn x CHole)\<close>
+    assume \<open>wf_ctx C\<close>
+    then have \<open>wf_ctx ?C\<close>
+      by simp
+    moreover have \<open>C\<lbrakk>x\<^bold>?.P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    moreover have \<open>C\<lbrakk>x\<^bold>?.Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    ultimately show \<open>C\<lbrakk>x\<^bold>?.P\<rbrakk> \<sim> C\<lbrakk>x\<^bold>?.Q\<rbrakk>\<close>
+      using * by simp
+  qed
+  then show ?case
+    by blast
+qed
+
+lemma sbcong_rep [simp]: \<open>P \<simeq> Q \<Longrightarrow> (\<^bold>!P) \<simeq> (\<^bold>!Q)\<close>
+proof (coinduction)
+  case sbcong
+  then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+    by auto
+  then have \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>\<^bold>!P\<rbrakk> \<sim> C\<lbrakk>\<^bold>!Q\<rbrakk>\<close>
+  proof (clarify)
+    fix C
+    let ?C = \<open>apply_ctx_ctx C (CReplicate CHole)\<close>
+    assume \<open>wf_ctx C\<close>
+    then have \<open>wf_ctx ?C\<close>
+      by simp
+    moreover have \<open>C\<lbrakk>\<^bold>!P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    moreover have \<open>C\<lbrakk>\<^bold>!Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    proof (induction C)
+      case (CComposition C1 C2)
+      then show ?case
+        by (cases \<open>wf_ctx C1\<close>) simp_all
+    qed simp_all
+    ultimately show \<open>C\<lbrakk>\<^bold>!P\<rbrakk> \<sim> C\<lbrakk>\<^bold>!Q\<rbrakk>\<close>
+      using * by simp
+  qed
+  then show ?case
+    by blast
+qed
 
 lemma sbcong_cong: \<open>congruence sbcong\<close>
   unfolding congruence_def
 proof (safe)
   fix P Q C
   assume \<open>P \<simeq> Q\<close>
-  assume \<open>wf_ctx C\<close>
-  then show \<open>(C\<lbrakk>P\<rbrakk>) \<simeq> (C\<lbrakk>Q\<rbrakk>)\<close>
-    sorry
+  moreover assume \<open>wf_ctx C\<close>
+  ultimately show \<open>C\<lbrakk>P\<rbrakk> \<simeq> C\<lbrakk>Q\<rbrakk>\<close>
+  proof (induction C)
+    case (CComposition C1 C2)
+    then show ?case
+    proof (cases \<open>wf_ctx C1\<close>)
+      case True
+      then have \<open>C1\<lbrakk>P\<rbrakk> \<simeq> C1\<lbrakk>Q\<rbrakk>\<close>
+        using CComposition by simp
+      moreover from True have *: \<open>ctx_holes C2 = 0\<close>
+        using CComposition by simp
+      then have \<open>C2\<lbrakk>P\<rbrakk> = C2\<lbrakk>\<zero>\<rbrakk>\<close>
+        by simp
+      then have \<open>CComposition C1 C2\<lbrakk>P\<rbrakk> = Composition (C1\<lbrakk>P\<rbrakk>) (C2\<lbrakk>\<zero>\<rbrakk>)\<close>
+        by simp
+      moreover from * have \<open>C2\<lbrakk>Q\<rbrakk> = C2\<lbrakk>\<zero>\<rbrakk>\<close>
+        by simp
+      then have \<open>CComposition C1 C2\<lbrakk>Q\<rbrakk> = Composition (C1\<lbrakk>Q\<rbrakk>) (C2\<lbrakk>\<zero>\<rbrakk>)\<close>
+        by simp
+      moreover have \<open>(C1\<lbrakk>P\<rbrakk> \<^bold>| (C2\<lbrakk>\<zero>\<rbrakk>)) \<simeq> (C1\<lbrakk>Q\<rbrakk> \<^bold>| (C2\<lbrakk>\<zero>\<rbrakk>))\<close>
+        sorry
+      ultimately show ?thesis
+        by simp
+    next
+      case False
+      then have \<open>ctx_holes C1 = 0\<close>
+        using CComposition by simp
+      then show ?thesis
+        sorry
+    qed
+  qed simp_all
 qed
 
 lemma sbcong_sym: \<open>symp sbcongruence\<close>
@@ -786,7 +995,7 @@ proof
   qed
 qed
 
-lemma sbcong_bisim: \<open>P \<simeq> Q \<Longrightarrow> P \<sim> Q\<close>
+lemma sbcong_bisim[simp]: \<open>P \<simeq> Q \<Longrightarrow> P \<sim> Q\<close>
 proof -
   assume \<open>(P,Q) \<in> sbcong\<close>
   then show \<open>P \<sim> Q\<close>
@@ -794,16 +1003,83 @@ proof -
     case (bisim R S)
     then show ?case sorry
   next
-    case (bisym R S)
+    case (sym R S)
     then show ?case
       using sbcong_sym by (meson symp_def)
   qed
 qed
 
+lemma bisim_contract_inaction: \<open>P \<sim> P \<^bold>| \<zero>\<close>
+proof -
+  have \<open>P \<sim> P\<close>
+    using bisim_refl unfolding reflp_def by simp
+  then have \<open>P \<sim>[bisim]\<leadsto> P\<close>
+    by fast
+  then have \<open>\<And>\<mu>. observable P \<mu> \<Longrightarrow> observable P \<mu>\<close>
+    \<open>\<And>P'. P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. (P \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> bisim\<close>
+    using sim_E by blast+
+  then have \<open>P \<sim>[bisim]\<leadsto> P \<^bold>| \<zero>\<close>
+    unfolding sim_def
+    sorry
+  then show ?thesis
+    sorry
+qed
+
 lemma sbcong_largest: \<open>congruence S \<and> S \<subseteq> bisim \<Longrightarrow> S \<subseteq> sbcong\<close>
-  oops
+  using congruence_def sbcong.simps by fastforce
 
 theorem challenge: \<open>P \<simeq> Q \<longleftrightarrow> (\<forall>R. (P \<^bold>| R) \<sim> (Q \<^bold>| R))\<close>
-  oops
+proof (safe)
+  fix R
+  let ?C = \<open>CComposition CHole (process_to_ctx R)\<close>
+  have \<open>wf_ctx ?C\<close>
+    by simp
+  moreover assume \<open>P \<simeq> Q\<close>
+  ultimately have \<open>?C\<lbrakk>P\<rbrakk> \<simeq> ?C\<lbrakk>Q\<rbrakk>\<close>
+    using sbcong_cong unfolding congruence_def by blast
+  then show \<open>P \<^bold>| R \<sim> Q \<^bold>| R\<close>
+    by (simp add: congruence_def)
+next
+  assume *: \<open>\<forall>R.  P\<^bold>|R \<sim> Q\<^bold>|R\<close>
+  show \<open>P \<simeq> Q\<close>
+  proof (rule sbcong.intros, safe)
+    fix C
+    assume \<open>wf_ctx C\<close>
+    then show \<open>C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+    proof (induction C)
+      case CHole
+      from * have \<open>P \<^bold>| \<zero> \<sim> Q \<^bold>| \<zero>\<close>
+        by blast
+      moreover have \<open>P \<^bold>| \<zero> \<sim> P\<close>
+        using bisim_contract_inaction bisim_sym symp_def by metis
+      moreover have \<open>Q \<sim> Q \<^bold>| \<zero>\<close>
+        using bisim_contract_inaction by metis
+      ultimately have \<open>P \<sim> Q\<close>
+        by (metis (no_types, lifting) bisim_equiv equivp_def)
+      then show ?case
+        by simp
+    next
+      case CInaction
+      then show ?case
+        by simp
+    next
+      case (COut x1 C)
+      then have \<open>C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
+        by simp
+      then show ?case
+        
+        sorry
+    next
+      case (CIn x1 C)
+      then show ?case sorry
+    next
+      case (CComposition C1 C2)
+      then show ?case sorry
+    next
+      case (CReplicate C)
+      then show ?case sorry
+    qed
+  qed
+qed
 
 end
