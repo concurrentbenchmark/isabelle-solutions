@@ -41,19 +41,19 @@ fun open_var_rec where
 definition open_var where
   \<open>open_var x P \<equiv> open_var_rec 0 x P\<close>
 
-fun open_name_name where
-  \<open>open_name_name k xs (FName y) = FName y\<close>
-| \<open>open_name_name k xs (BName i j) = (if i = k then xs ! j else BName i j)\<close>
+fun open_names_name where
+  \<open>open_names_name k xs (FName y) = FName y\<close>
+| \<open>open_names_name k xs (BName i j) = (if i = k then xs ! j else BName i j)\<close>
 
-fun open_name_rec where
-  \<open>open_name_rec k xs Inaction = Inaction\<close>
-| \<open>open_name_rec k xs (Output y v P) = Output (open_name_name k xs y) v (open_name_rec k xs P)\<close>
-| \<open>open_name_rec k xs (Input y P) = Input (open_name_name k xs y) (open_name_rec k xs P)\<close>
-| \<open>open_name_rec k xs (Composition P Q) = Composition (open_name_rec k xs P) (open_name_rec k xs Q)\<close>
-| \<open>open_name_rec k xs (Restriction P) = Restriction (open_name_rec (Suc k) xs P)\<close>
+fun open_names_rec where
+  \<open>open_names_rec k xs Inaction = Inaction\<close>
+| \<open>open_names_rec k xs (Output y v P) = Output (open_names_name k xs y) v (open_names_rec k xs P)\<close>
+| \<open>open_names_rec k xs (Input y P) = Input (open_names_name k xs y) (open_names_rec k xs P)\<close>
+| \<open>open_names_rec k xs (Composition P Q) = Composition (open_names_rec k xs P) (open_names_rec k xs Q)\<close>
+| \<open>open_names_rec k xs (Restriction P) = Restriction (open_names_rec (Suc k) xs P)\<close>
 
-definition open_name where
-  \<open>open_name xs P \<equiv> open_name_rec 0 xs P\<close>
+definition open_names where
+  \<open>open_names xs P \<equiv> open_names_rec 0 xs P\<close>
 
 subsection \<open>Closing\<close>
 
@@ -111,9 +111,60 @@ fun free_names where
 | \<open>free_names (Composition P Q) = free_names P \<union> free_names Q\<close>
 | \<open>free_names (Restriction P) = free_names P\<close>
 
+subsection \<open>Local closure\<close>
+
+inductive lc_val where
+  LCBase[intro]: \<open>lc_val (Base v)\<close>
+| LCFVar[intro]: \<open>lc_val (FVar x)\<close>
+
+inductive lc_name where
+  LCFName[intro]: \<open>lc_name (FName x)\<close>
+
+inductive lc where
+  LCInaction[intro]: \<open>lc Inaction\<close>
+| LCOutput[intro]: \<open>lc_name x \<Longrightarrow> lc_val v \<Longrightarrow> lc P \<Longrightarrow> lc (Output x v P)\<close>
+| LCInput[intro]: \<open>lc_name x \<Longrightarrow> \<exists>L. \<forall>y. y \<notin> L \<longrightarrow> lc (open_var (FVar y) P) \<Longrightarrow> lc (Input x P)\<close>
+| LCComposition[intro]: \<open>lc P \<Longrightarrow> lc Q \<Longrightarrow> lc (Composition P Q)\<close>
+| LCRestriction[intro]: \<open>\<exists>L. \<forall>x y. (x \<notin> L \<and> y \<notin> L) \<longrightarrow> lc (open_names [x,y] P) \<Longrightarrow> lc (Restriction P)\<close>
+
+definition input_body where
+  \<open>input_body P \<equiv> \<exists>L. \<forall>y. y \<notin> L \<longrightarrow> lc (open_var (FVar y) P)\<close>
+
+lemma lc_input_iff_input_body:
+  \<open>lc_name x \<Longrightarrow> lc (Input x P) \<longleftrightarrow> input_body P\<close>
+  using LCInput input_body_def by blast
+
+definition restriction_body where
+  \<open>restriction_body P \<equiv> \<exists>L. \<forall>x y. (x \<notin> L \<and> y \<notin> L) \<longrightarrow> lc (open_names [x,y] P)\<close>
+
+lemma lc_restriction_iff_restriction_body:
+  \<open>lc (Restriction P) \<longleftrightarrow> restriction_body P\<close>
+  using LCRestriction restriction_body_def by blast
+
 subsection \<open>Substitution\<close>
 
-subsection \<open>Local closure\<close>
+fun subst_var_val where
+  \<open>subst_var_val (Base v) y u = Base v\<close>
+| \<open>subst_var_val (FVar x) y u = (if x = y then u else FVar x)\<close>
+| \<open>subst_var_val (BVar i) y u = BVar i\<close>
+
+fun subst_var where
+  \<open>subst_var Inaction y u = Inaction\<close>
+| \<open>subst_var (Output x v P) y u = Output x (subst_var_val v y u) (subst_var P y u)\<close>
+| \<open>subst_var (Input x P) y u = Input x (subst_var P y u)\<close>
+| \<open>subst_var (Composition P Q) y u = Composition (subst_var P y u) (subst_var Q y u)\<close>
+| \<open>subst_var (Restriction P) y u = Restriction (subst_var P y u)\<close>
+
+fun subst_name_name where
+  \<open>subst_name_name (FName x) y u = (if x = y then u else FName x)\<close>
+| \<open>subst_name_name (BName i j) y u = BName i j\<close>
+
+fun subst_name where
+  \<open>subst_name Inaction y u = Inaction\<close>
+| \<open>subst_name (Output x v P) y u = Output (subst_name_name x y u) v (subst_name P y u)\<close>
+| \<open>subst_name (Input x P) y u = Input (subst_name_name x y u) (subst_name P y u)\<close>
+| \<open>subst_name (Composition P Q) y u = Composition (subst_name P y u) (subst_name Q y u)\<close>
+| \<open>subst_name (Restriction P) y u = Restriction (subst_name P y u)\<close>
 
 subsection \<open>Properties\<close>
 
@@ -150,22 +201,27 @@ definition wf_ctx where \<open>wf_ctx C \<equiv> holes_in_ctx C = 1\<close>
 subsection \<open>Structural congruence\<close>
 
 inductive struct_cong (\<open>_ \<^bold>\<equiv> _\<close>) where
-  ScParComm:  \<open>(Composition P Q) \<^bold>\<equiv> (Composition Q P)\<close>
-| ScParAssoc: \<open>(Composition (Composition P Q) R) \<^bold>\<equiv> (Composition P (Composition Q P))\<close>
-| ScParInact: \<open>(Composition P Inaction) \<^bold>\<equiv> P\<close>
-| ScResPar: \<open>(Composition (Restriction P) Q) \<^bold>\<equiv> (Restriction (Composition P Q))\<close>
-| ScResInact: \<open>(Restriction Inaction) \<^bold>\<equiv> Inaction\<close>
+  ScParComm[intro]: \<open>lc P \<Longrightarrow> lc Q \<Longrightarrow> (Composition P Q) \<^bold>\<equiv> (Composition Q P)\<close>
+| ScParAssoc[intro]: \<open>lc P \<Longrightarrow> lc Q \<Longrightarrow> lc R \<Longrightarrow> (Composition (Composition P Q) R) \<^bold>\<equiv> (Composition P (Composition Q R))\<close>
+| ScParInact[intro]: \<open>lc P \<Longrightarrow> (Composition P Inaction) \<^bold>\<equiv> P\<close>
+| ScResPar[intro]: \<open>lc P \<Longrightarrow> lc Q \<Longrightarrow> (Composition (Restriction P) Q) \<^bold>\<equiv> (Restriction (Composition P Q))\<close>
+| ScResInact[intro]: \<open>(Restriction Inaction) \<^bold>\<equiv> Inaction\<close>
 
-(* for ScResPar, we probably don't need to do anything about the names being "rebound"? *)
+lemma struct_cong_lc[simp]: \<open>P \<^bold>\<equiv> Q \<Longrightarrow> lc P \<and> lc Q\<close>
+  by (induction rule: struct_cong.induct) auto
 
 subsection \<open>Operational semantics\<close>
 
 inductive semantics (\<open>_ \<longlongrightarrow> _\<close>) where
-  RCom: \<open>(Restriction (Composition (Composition (Output (BName 0 0) v P) (Input (BName 0 1) Q)) R))
+  RCom[intro]: \<open>lc_val v \<Longrightarrow> lc P \<Longrightarrow> lc Q \<Longrightarrow> lc R \<Longrightarrow>
+          (Restriction (Composition (Composition (Output (BName 0 0) v P) (Input (BName 0 1) Q)) R))
            \<longlongrightarrow> (Restriction (Composition (Composition P (open_var v Q)) R))\<close>
-| RRes: \<open>P \<longlongrightarrow> Q \<Longrightarrow> (Restriction P) \<longlongrightarrow> (Restriction Q)\<close>
-| RPar: \<open>P \<longlongrightarrow> Q \<Longrightarrow> (Composition P R) \<longlongrightarrow> (Composition Q R)\<close>
-| RStruct: \<open>P \<^bold>\<equiv> P' \<Longrightarrow> P' \<longlongrightarrow> Q' \<Longrightarrow> Q \<^bold>\<equiv> Q' \<Longrightarrow> P \<longlongrightarrow> Q\<close>
+| RRes[intro]: \<open>P \<longlongrightarrow> Q \<Longrightarrow> (Restriction P) \<longlongrightarrow> (Restriction Q)\<close>
+| RPar[intro]: \<open>lc R \<Longrightarrow> P \<longlongrightarrow> Q \<Longrightarrow> (Composition P R) \<longlongrightarrow> (Composition Q R)\<close>
+| RStruct[intro]: \<open>P \<^bold>\<equiv> P' \<Longrightarrow> P' \<longlongrightarrow> Q' \<Longrightarrow> Q \<^bold>\<equiv> Q' \<Longrightarrow> P \<longlongrightarrow> Q\<close>
+
+lemma semantics_lc[simp]: \<open>P \<longlongrightarrow> Q \<Longrightarrow> lc P \<and> lc Q\<close>
+  by (induction rule: semantics.induct) auto
 
 subsection \<open>Well-formed processes\<close>
 
@@ -206,60 +262,238 @@ fun dual where
 
 subsection \<open>Type contexts\<close>
 
-type_synonym type_ctx = \<open>(name, type) map\<close>
+datatype ctx_elem =
+  CVar var_atom
+| CName name_atom
+
+type_synonym type_ctx = \<open>(ctx_elem, type) map\<close>
 
 definition un_ctx :: \<open>type_ctx \<Rightarrow> bool\<close> where
   \<open>un_ctx \<Gamma> \<equiv> \<forall>T \<in> ran \<Gamma>. un T\<close>
 
 inductive split :: \<open>type_ctx \<Rightarrow> type_ctx \<Rightarrow> type_ctx \<Rightarrow> bool\<close> (\<open>_ \<circle> _ = _\<close>) where
-  SplitEmpty: \<open>Map.empty \<circle> Map.empty = Map.empty\<close>
-| SplitUn: \<open>un T \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1(x \<mapsto> T) \<circle> \<Gamma>\<^sub>2(x \<mapsto> T) = (\<Gamma>(x \<mapsto> T))\<close>
-| SplitLinL: \<open>\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1(x \<mapsto> S) \<circle> \<Gamma>\<^sub>2 = (\<Gamma>(x \<mapsto> S))\<close>
-| SplitLinR: \<open>\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2(x \<mapsto> S) = (\<Gamma>(x \<mapsto> S))\<close>
+  SplitEmpty[intro]: \<open>Map.empty \<circle> Map.empty = Map.empty\<close>
+| SplitUn[intro]: \<open>un T \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1(x \<mapsto> T) \<circle> \<Gamma>\<^sub>2(x \<mapsto> T) = (\<Gamma>(x \<mapsto> T))\<close>
+| SplitLinL[intro]: \<open>\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1(x \<mapsto> S) \<circle> \<Gamma>\<^sub>2 = (\<Gamma>(x \<mapsto> S))\<close>
+| SplitLinR[intro]: \<open>\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2(x \<mapsto> S) = (\<Gamma>(x \<mapsto> S))\<close>
+
+lemma split_commute: \<open>\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma>\<^sub>2 \<circle> \<Gamma>\<^sub>1 = \<Gamma>\<close>
+  by (induction rule: split.induct) blast+
 
 inductive update :: \<open>type_ctx \<Rightarrow> name \<Rightarrow> type \<Rightarrow> type_ctx \<Rightarrow> bool\<close> (\<open>_ \<^bold>+ _ : _ = _\<close>) where
-  UpdateName: \<open>(x,U) \<notin> Map.graph \<Gamma> \<Longrightarrow> \<Gamma> \<^bold>+ x : T = (\<Gamma>(x \<mapsto> T))\<close>
-| UpdateUn: \<open>un T \<Longrightarrow> \<Gamma>(x \<mapsto> T) \<^bold>+ x : T = (\<Gamma>(x \<mapsto> T))\<close>
+  UpdateName[intro]: \<open>x = FName y \<Longrightarrow> (CName y,U) \<notin> Map.graph \<Gamma> \<Longrightarrow> \<Gamma> \<^bold>+ x : T = (\<Gamma>(CName y \<mapsto> T))\<close>
+| UpdateUn[intro]: \<open>x = FName y \<Longrightarrow> un T \<Longrightarrow> \<Gamma>(CName y \<mapsto> T) \<^bold>+ x : T = (\<Gamma>(CName y \<mapsto> T))\<close>
+
+lemma update_lc_ctx[simp]: \<open>\<Gamma> \<^bold>+ x : T = \<Gamma>' \<Longrightarrow> lc_name x\<close>
+  by (induction rule: update.induct) auto
 
 subsection \<open>Typing\<close>
 
 inductive typing_values :: \<open>type_ctx \<Rightarrow> val \<Rightarrow> type \<Rightarrow> bool\<close> (\<open>_ \<turnstile>\<^sub>v _ : _\<close>) where
-  TBase:  \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>v Base a : TBase\<close>
+  TBase[intro]: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>v Base a : TBase\<close>
+| TVar[intro]: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma>(CVar v \<mapsto> TBase) \<turnstile>\<^sub>v FVar v : TBase\<close>
+
+lemma typing_values_lc[simp]: \<open>\<Gamma> \<turnstile>\<^sub>v v : T \<Longrightarrow> lc_val v\<close>
+  by (induction rule: typing_values.induct) auto
 
 inductive typing_names (\<open>_ \<turnstile>\<^sub>n _ : _\<close>) where
-  TName: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma>(x \<mapsto> T) \<turnstile>\<^sub>n x : T\<close>
+  TName[intro]: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma>(CName x \<mapsto> T) \<turnstile>\<^sub>n FName x : T\<close>
+
+lemma typing_names_lc[simp]: \<open>\<Gamma> \<turnstile>\<^sub>n x : T \<Longrightarrow> lc_name x\<close>
+  by (induction rule: typing_names.induct) auto
 
 inductive typing (\<open>_ \<turnstile> _\<close>) where
-  TInaction: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> Inaction\<close>
-| TPar: \<open>\<Gamma>\<^sub>1 \<turnstile> P \<Longrightarrow> \<Gamma>\<^sub>2 \<turnstile> Q \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> (Composition P Q)\<close>
-| TRes: \<open>dual T = Some T' \<Longrightarrow> (\<Gamma>(x \<mapsto> T, y \<mapsto> T')) \<turnstile> P \<Longrightarrow> \<Gamma> \<turnstile> (Restriction P)\<close>
-| TIn: \<open>(\<Gamma>\<^sub>1 \<turnstile>\<^sub>n x : (TIn U))
-          \<Longrightarrow> \<Gamma>\<^sub>2(l \<mapsto> TBase) \<^bold>+ x : U = \<Gamma>\<^sub>2'
-          \<Longrightarrow> \<Gamma>\<^sub>2' \<turnstile> P
-          \<Longrightarrow> (\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma>)
-          \<Longrightarrow> \<Gamma> \<turnstile> (Input x P)\<close>
+  TInaction[intro]: \<open>un_ctx \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> Inaction\<close>
+| TPar[intro]: \<open>\<Gamma>\<^sub>1 \<turnstile> P \<Longrightarrow> \<Gamma>\<^sub>2 \<turnstile> Q \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> (Composition P Q)\<close>
+| TRes[intro]: \<open>dual T = Some T' \<Longrightarrow> (\<Gamma>(CName x \<mapsto> T, CName y \<mapsto> T')) \<turnstile> P
+      \<Longrightarrow> \<Gamma> \<turnstile> (Restriction (close_name y 1 (close_name x 0 P)))\<close>
+| TOut[intro]: \<open>\<Gamma>\<^sub>1 \<turnstile>\<^sub>n x : (TOut T)
+      \<Longrightarrow> \<Gamma>\<^sub>2 \<turnstile>\<^sub>v v : TBase
+      \<Longrightarrow> \<Gamma>\<^sub>3 \<^bold>+ x : T = \<Gamma>' \<Longrightarrow> \<Gamma>' \<turnstile> P
+      \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma>\<^sub>1\<^sub>2 \<Longrightarrow> \<Gamma>\<^sub>1\<^sub>2 \<circle> \<Gamma>\<^sub>3 = \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> (Output x v P)\<close>
+| TIn[intro]: \<open>\<Gamma>\<^sub>1 \<turnstile>\<^sub>n x : (TIn U)
+          \<Longrightarrow> \<Gamma>\<^sub>2(CVar l \<mapsto> TBase) \<^bold>+ x : U = \<Gamma>\<^sub>2' \<Longrightarrow> \<Gamma>\<^sub>2' \<turnstile> P
+          \<Longrightarrow> (\<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma>) \<Longrightarrow> \<Gamma> \<turnstile> (Input x (close_var l P))\<close>
 
-lemma \<open>\<Gamma> \<turnstile> P \<Longrightarrow> un T \<Longrightarrow> \<Gamma>(x \<mapsto> T) \<turnstile>  P\<close>
+lemma typing_lc: \<open>\<Gamma> \<turnstile> P \<Longrightarrow> lc P\<close>
+proof (induction rule: typing.induct)
+  case (TRes T T' \<Gamma> x y P)
+  then show ?case
+    by blast
+next
+  case (TOut \<Gamma>\<^sub>1 x T \<Gamma>\<^sub>2 v \<Gamma>\<^sub>3 \<Gamma>' P \<Gamma>\<^sub>1\<^sub>2 \<Gamma>)
+  then show ?case
+    by (simp add: LCOutput)
+next
+  case (TIn \<Gamma>\<^sub>1 x U \<Gamma>\<^sub>2 l \<Gamma>\<^sub>2' P \<Gamma>)
+  then show ?case
+    using typing_names_lc by blast
+qed auto
+
+lemma typing_add_unrestricted_name: \<open>\<Gamma> \<turnstile> P \<Longrightarrow> un T \<Longrightarrow> \<Gamma>(CName x \<mapsto> T) \<turnstile> P\<close>
+proof (induction rule: typing.induct)
+  case (TInaction \<Gamma>)
+  then show ?case
+    by (smt (verit, best) fun_upd_same fun_upd_upd insert_iff map_upd_Some_unfold mem_Collect_eq name.inject(1) ranI ran_restrictD restrict_complement_singleton_eq restrict_map_insert restrict_upd_same typing.TInaction un_ctx_def)
+next
+  case (TPar \<Gamma>\<^sub>1 P \<Gamma>\<^sub>2 Q \<Gamma>)
+  then show ?case
+    by blast
+next
+  case (TRes T T' \<Gamma> x y P)
+  then show ?case
+    by (smt (verit, best) fun_upd_twist fun_upd_upd typing.TRes)
+next
+  case (TOut \<Gamma>\<^sub>1 x' T' \<Gamma>\<^sub>2 v \<Gamma>\<^sub>3 \<Gamma>' P \<Gamma>\<^sub>1\<^sub>2 \<Gamma>)
+  then show ?case
+    sorry
+next
+  case (TIn \<Gamma>\<^sub>1 x U \<Gamma>\<^sub>2 l \<Gamma>\<^sub>2' P \<Gamma>)
+  then show ?case
+    sorry
+qed
+
+lemma typing_add_unrestricted_var: \<open>\<Gamma> \<turnstile> P \<Longrightarrow> un T \<Longrightarrow> \<Gamma>(CVar x \<mapsto> T) \<turnstile> P\<close>
+proof (induction rule: typing.induct)
+  case (TInaction \<Gamma>)
+  then show ?case
+    by (smt (verit, ccfv_SIG) fun_upd_same fun_upd_upd map_upd_Some_unfold ranI ran_restrictD restrict_complement_singleton_eq restrict_map_insert restrict_upd_same typing.TInaction un_ctx_def)
+next
+  case (TPar \<Gamma>\<^sub>1 P \<Gamma>\<^sub>2 Q \<Gamma>)
+  then show ?case
+    by blast
+next
+  case (TRes T T' \<Gamma> x y P)
+  then show ?case
+    by (smt (verit, ccfv_SIG) ctx_elem.distinct(2) fun_upd_twist typing.TRes)
+next
+  case (TOut \<Gamma>\<^sub>1 x T \<Gamma>\<^sub>2 v \<Gamma>\<^sub>3 \<Gamma>' P \<Gamma>\<^sub>1\<^sub>2 \<Gamma>)
+  then show ?case
+    sorry
+next
+  case (TIn \<Gamma>\<^sub>1 x U \<Gamma>\<^sub>2 l \<Gamma>\<^sub>2' P \<Gamma>)
+  then show ?case
+    sorry
+qed
+
+lemma typing_add_restricted_name:
+  assumes \<open>\<Gamma> \<turnstile> P\<close> and \<open>FName x \<notin> free_names P\<close>
+  shows \<open>\<forall>T. (CName x, TOut T) \<notin> Map.graph \<Gamma>\<close>
+    and \<open>\<forall>T. (CName x, TIn T) \<notin> Map.graph \<Gamma>\<close>
+    and \<open>\<Gamma> = \<Gamma>'(CName x \<mapsto> T) \<Longrightarrow> \<Gamma>' \<turnstile> P\<close>
   sorry
 
-lemma
-  assumes \<open>\<Gamma> \<turnstile> P\<close> and \<open>x \<notin> free_names P\<close>
-  shows \<open>\<forall>T. (x, TOut T) \<notin> Map.graph \<Gamma>\<close>
-    and \<open>\<forall>T. (x, TIn T) \<notin> Map.graph \<Gamma>\<close>
-    and \<open>\<Gamma> = \<Gamma>'(x \<mapsto> T) \<Longrightarrow> \<Gamma>' \<turnstile> P\<close>
+lemma typing_struct_cong: \<open>P \<^bold>\<equiv> Q \<Longrightarrow> \<Gamma> \<turnstile> P \<Longrightarrow> \<Gamma> \<turnstile> Q\<close>
+proof (induction rule: struct_cong.induct)
+  case (ScParComm P Q)
+  from ScParComm.prems show ?case
+  proof (cases rule: typing.cases)
+    case (TPar \<Gamma>\<^sub>1 \<Gamma>\<^sub>2)
+    then show ?thesis
+      using split_commute by blast
+  qed
+next
+  case (ScParAssoc P Q R)
+  from ScParAssoc.prems show ?case
+  proof (cases rule: typing.cases)
+    case *: (TPar \<Gamma>\<^sub>1 \<Gamma>\<^sub>2)
+    from *(1) show ?thesis
+    proof (cases rule: typing.cases)
+      case (TPar \<Gamma>\<^sub>3 \<Gamma>\<^sub>4)
+      then show ?thesis
+        using *(2-3) split_commute typing.TPar[of \<Gamma>\<^sub>1 P \<Gamma>\<^sub>2 \<open>Composition Q R\<close> \<Gamma>]
+        sorry
+    qed
+  qed
+next
+  case (ScParInact P)
+  then show ?case sorry
+next
+  case (ScResPar P Q)
+  then show ?case sorry
+next
+  case ScResInact
+  then show ?case sorry
+qed
+
+lemma typing_subst_var: \<open>\<Gamma>\<^sub>1 \<turnstile>\<^sub>v v : T \<Longrightarrow> \<Gamma>\<^sub>2(CVar x \<mapsto> T) \<turnstile> P \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> (subst_var P x v)\<close>
   sorry
 
-lemma \<open>\<Gamma> \<turnstile> P \<Longrightarrow> P \<^bold>\<equiv> Q \<Longrightarrow> \<Gamma> \<turnstile> Q\<close>
-  sorry
-
-lemma \<open>\<Gamma>\<^sub>1 \<turnstile>\<^sub>v v : T \<Longrightarrow> \<Gamma>\<^sub>2(x \<mapsto> T) \<turnstile> P \<Longrightarrow> \<Gamma>\<^sub>1 \<circle> \<Gamma>\<^sub>2 = \<Gamma> \<Longrightarrow> \<Gamma> \<turnstile> (open_var v P)\<close>
-  sorry
+lemma composition_semantics_cases[elim]:
+  assumes \<open>(Composition A B) \<longlongrightarrow> (Composition C D)\<close>
+    and \<open>A = C \<Longrightarrow> B \<longlongrightarrow> D \<Longrightarrow> R\<close>
+    and \<open>B = D \<Longrightarrow> A \<longlongrightarrow> C \<Longrightarrow> R\<close>
+  shows \<open>R\<close>
+  using assms
+proof (cases rule: semantics.cases)
+  case RPar
+  then show ?thesis using assms by simp
+next
+  case *: (RStruct P' Q')
+  from *(2) show ?thesis
+  proof (cases rule: semantics.cases)
+    case (RCom v P Q R)
+    then show ?thesis using assms *
+      sorry
+  next
+    case (RRes P Q)
+    then show ?thesis sorry
+  next
+    case (RPar R P Q)
+    then show ?thesis sorry
+  next
+    case (RStruct P'' Q'')
+    then show ?thesis using assms * sorry
+  qed
+qed
 
 theorem subject_reduction: \<open>\<Gamma> \<turnstile> P \<Longrightarrow> P \<longlongrightarrow> Q \<Longrightarrow> \<Gamma> \<turnstile> Q\<close>
-  sorry
+proof (induction arbitrary: Q rule: typing.induct)
+  case (TInaction \<Gamma>)
+  then show ?case
+    using semantics.simps struct_cong.simps by blast
+next
+  case (TPar \<Gamma>\<^sub>1 P \<Gamma>\<^sub>2 Q' \<Gamma> Q)
+  then show ?case
+  proof (cases Q)
+    case (Composition P' Q'')
+    then show ?thesis
+      using RPar TPar by blast
+  qed (smt (verit, del_insts) process.distinct semantics.simps struct_cong.simps)+
+next
+  case (TRes T T' \<Gamma> x y P)
+  from TRes.prems show ?case
+  proof (cases Q)
+    case (Restriction R)
+    then show ?thesis using TRes
+      sorry
+  qed (smt (verit, best) process.distinct process.simps(20) semantics.simps struct_cong.simps)+
+next
+  case (TOut \<Gamma>\<^sub>1 x T \<Gamma>\<^sub>2 v \<Gamma>\<^sub>3 \<Gamma>' P \<Gamma>\<^sub>1\<^sub>2 \<Gamma>)
+  then show ?case
+    by (smt (verit, best) process.distinct(11) process.distinct(13) semantics.simps struct_cong.simps)
+next
+  case (TIn \<Gamma>\<^sub>1 x U \<Gamma>\<^sub>2 l \<Gamma>\<^sub>2' P \<Gamma>)
+  then show ?case
+    by (smt (verit, best) process.distinct(17) process.simps(20) semantics.simps struct_cong.simps)
+qed
 
 theorem type_safety: \<open>Map.empty \<turnstile> P \<Longrightarrow> wf_process P\<close>
-  sorry
+proof (induction P rule: typing.induct)
+  case (TOut \<Gamma>\<^sub>1 x T \<Gamma>\<^sub>2 v \<Gamma>\<^sub>3 \<Gamma>' P \<Gamma>\<^sub>1\<^sub>2 \<Gamma>)
+  then show ?case unfolding wf_process_def
+  proof (clarify)
+    fix Q x' y n X Y Z
+    assume \<open>(Output x v P) \<^bold>\<equiv> (append_res n (Composition (Composition X Y) Z))\<close>
+           \<open>prefixed_at x' (Output x v P)\<close>
+    then show \<open>(\<exists>P' a. Output x v P = Output x' a P') \<and> (\<exists>Q'. append_res n (Composition (Composition X Y) Z) = Input y Q')\<close>
+      using struct_cong.simps by blast
+  qed
+next
+  case (TIn \<Gamma>\<^sub>1 x U \<Gamma>\<^sub>2 l \<Gamma>\<^sub>2' P \<Gamma>)
+  then show ?case unfolding wf_process_def
+    by (smt (verit, ccfv_SIG) prefixed_at.simps(4) process.distinct(17) struct_cong.simps)
+qed (auto simp add: wf_process_def)
 
 corollary \<open>Map.empty \<turnstile> P \<Longrightarrow> P \<longlongrightarrow> Q \<Longrightarrow> wf_process Q\<close>
   using subject_reduction type_safety by blast
