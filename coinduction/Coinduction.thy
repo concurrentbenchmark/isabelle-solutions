@@ -8,10 +8,10 @@ type_synonym name = string
 
 datatype process =
   Inaction (\<open>\<zero>\<close>)
-  | Out name process (\<open>_\<^bold>!._\<close> [50, 60] 200)
-  | In name process (\<open>_\<^bold>?._\<close> [50, 60] 200)
-  | Composition process process (\<open>_\<^bold>|_\<close> [50, 50] 300)
-  | Replicate process (\<open>\<^bold>!_\<close> [50] 100)
+  | Out name process (\<open>_\<^bold>!._\<close> [180, 150] 160)
+  | In name process (\<open>_\<^bold>?._\<close> [180, 150] 160)
+  | Composition process process (\<open>_\<^bold>|_\<close> [120,120] 140)
+  | Replicate process (\<open>\<^bold>!_\<close> [150] 130)
 
 primrec names where
   \<open>names Inaction = {}\<close>
@@ -23,11 +23,11 @@ primrec names where
 section \<open>Semantics\<close>
 
 datatype actions =
-  AOut name (\<open>_\<^bold>!\<close> 100)
-  | AIn name (\<open>_\<^bold>?\<close> 100)
+  AOut name (\<open>_\<^bold>!\<close> 800)
+  | AIn name (\<open>_\<^bold>?\<close> 800)
   | ATau (\<open>\<tau>\<close>)
 
-inductive transition (\<open>_\<midarrow>_\<rightarrow>_\<close> [20, 20, 20] 30) where
+inductive transition (\<open>_\<midarrow>_\<rightarrow>_\<close> [120, 500, 120] 115) where
   TOut[intro]: \<open>x\<^bold>!.P \<midarrow>x\<^bold>!\<rightarrow> P\<close>
 | TIn[intro]: \<open>x\<^bold>?.P \<midarrow>x\<^bold>?\<rightarrow> P\<close>
 | TParL[intro]: \<open>P \<midarrow>\<alpha>\<rightarrow> P' \<Longrightarrow> P \<^bold>| Q \<midarrow>\<alpha>\<rightarrow> P' \<^bold>| Q\<close>
@@ -36,7 +36,7 @@ inductive transition (\<open>_\<midarrow>_\<rightarrow>_\<close> [20, 20, 20] 30
 | TCommR[intro]: \<open>P \<midarrow>x\<^bold>?\<rightarrow> P' \<Longrightarrow> Q \<midarrow>x\<^bold>!\<rightarrow> Q' \<Longrightarrow> P \<^bold>| Q \<midarrow>\<tau>\<rightarrow> P' \<^bold>| Q'\<close>
 | TRep[intro]: \<open>P \<midarrow>\<alpha>\<rightarrow> P' \<Longrightarrow> \<^bold>!P \<midarrow>\<alpha>\<rightarrow> P' \<^bold>| \<^bold>!P\<close>
 
-lemma inaction_stuck [simp]: \<open>\<nexists>P. (\<zero> \<midarrow>\<alpha>\<rightarrow> P)\<close>
+lemma inaction_stuck [simp]: \<open>\<nexists>P. \<zero> \<midarrow>\<alpha>\<rightarrow> P\<close>
 proof
   assume \<open>\<exists>P. \<zero> \<midarrow>\<alpha>\<rightarrow> P\<close>
   then obtain P where \<open>\<zero> \<midarrow>\<alpha>\<rightarrow> P\<close> ..
@@ -90,11 +90,11 @@ next
   qed
 qed
 
-lemma CommL_deterministic [simp]: \<open>\<exists>! R. (x\<^bold>!.P) \<^bold>| (x\<^bold>?.Q) \<midarrow>\<tau>\<rightarrow> R\<close>
+lemma CommL_deterministic [simp]: \<open>\<exists>! R. x\<^bold>!.P \<^bold>| x\<^bold>?.Q \<midarrow>\<tau>\<rightarrow> R\<close>
 proof
   fix R
-  assume \<open>(x\<^bold>!.P) \<^bold>| (x\<^bold>?.Q) \<midarrow>\<tau>\<rightarrow> R\<close>
-  then show \<open>R = (P \<^bold>| Q)\<close>
+  assume \<open>x\<^bold>!.P \<^bold>| x\<^bold>?.Q \<midarrow>\<tau>\<rightarrow> R\<close>
+  then show \<open>R = P \<^bold>| Q\<close>
   proof cases
     case (TParL P')
     with out_no_tau show ?thesis by blast
@@ -114,11 +114,11 @@ proof
   qed
 qed blast
 
-lemma CommR_deterministic [simp]: \<open>\<exists>! R. (x\<^bold>?.P) \<^bold>| (x\<^bold>!.Q) \<midarrow>\<tau>\<rightarrow> R\<close>
+lemma CommR_deterministic [simp]: \<open>\<exists>! R. x\<^bold>?.P \<^bold>| x\<^bold>!.Q \<midarrow>\<tau>\<rightarrow> R\<close>
 proof
   fix R
-  assume \<open>(x\<^bold>?.P) \<^bold>| (x\<^bold>!.Q) \<midarrow>\<tau>\<rightarrow> R\<close>
-  then show \<open>R = (P \<^bold>| Q)\<close>
+  assume \<open>x\<^bold>?.P \<^bold>| x\<^bold>!.Q \<midarrow>\<tau>\<rightarrow> R\<close>
+  then show \<open>R = P \<^bold>| Q\<close>
   proof cases
     case (TParL P')
     with in_no_tau show ?thesis by blast
@@ -145,8 +145,8 @@ datatype observables =
   | OIn name
 
 inductive observable where
-  ObsOut[intro]: \<open>\<exists>P'. P \<midarrow>AOut x\<rightarrow> P' \<Longrightarrow> observable P (OOut x)\<close>
-| ObsIn[intro]: \<open>\<exists>P'. P \<midarrow>AIn x\<rightarrow> P' \<Longrightarrow> observable P (OIn x)\<close>
+  ObsOut[intro]: \<open>\<exists>P'. P \<midarrow>x\<^bold>!\<rightarrow> P' \<Longrightarrow> observable P (OOut x)\<close>
+| ObsIn[intro]: \<open>\<exists>P'. P \<midarrow>x\<^bold>?\<rightarrow> P' \<Longrightarrow> observable P (OIn x)\<close>
 
 lemma obs_out_I [intro, simp]: \<open>observable (x\<^bold>!.P) (OOut x)\<close>
 proof
@@ -169,7 +169,7 @@ proof
   then show False
   proof (cases)
     case ObsOut
-    then obtain P' where \<open>(x\<^bold>!.P) \<midarrow>y\<^bold>!\<rightarrow> P'\<close> ..
+    then obtain P' where \<open>x\<^bold>!.P \<midarrow>y\<^bold>!\<rightarrow> P'\<close> ..
     then show False
       by cases (simp add: *)
   qed
@@ -182,16 +182,16 @@ proof
   then show False
   proof (cases)
     case ObsIn
-    then obtain P' where \<open>(x\<^bold>?.P) \<midarrow>y\<^bold>?\<rightarrow> P'\<close> ..
+    then obtain P' where \<open>x\<^bold>?.P \<midarrow>y\<^bold>?\<rightarrow> P'\<close> ..
     then show False
       by cases (simp add: *)
   qed
 qed
 
-lemma out_not_obs_in [simp]: \<open>P = (x\<^bold>!.Q) \<Longrightarrow> \<not> observable P (OIn y)\<close>
+lemma out_not_obs_in [simp]: \<open>P = x\<^bold>!.Q \<Longrightarrow> \<not> observable P (OIn y)\<close>
 proof
-  assume *: \<open>P = (x\<^bold>!.Q)\<close>
-  have \<open>\<forall>P'. \<not> (P \<midarrow>AIn y\<rightarrow> P')\<close>
+  assume *: \<open>P = x\<^bold>!.Q\<close>
+  have \<open>\<forall>P'. \<not> (P \<midarrow>y\<^bold>?\<rightarrow> P')\<close>
   proof
     fix P'
     show \<open>\<not> (P \<midarrow>y\<^bold>?\<rightarrow> P')\<close>
@@ -203,10 +203,10 @@ proof
     using observable.simps by auto
 qed
 
-lemma in_not_obs_out [simp]: \<open>P = (x\<^bold>?.Q) \<Longrightarrow> \<not> observable P (OOut y)\<close>
+lemma in_not_obs_out [simp]: \<open>P = x\<^bold>?.Q \<Longrightarrow> \<not> observable P (OOut y)\<close>
 proof
-  assume *: \<open>P = (x\<^bold>?.Q)\<close>
-  have \<open>\<forall>P'. \<not> (P \<midarrow>AOut y\<rightarrow> P')\<close>
+  assume *: \<open>P = x\<^bold>?.Q\<close>
+  have \<open>\<forall>P'. \<not> (P \<midarrow>y\<^bold>!\<rightarrow> P')\<close>
   proof
     fix P'
     show \<open>\<not> (P \<midarrow>y\<^bold>!\<rightarrow> P')\<close>
@@ -241,7 +241,7 @@ proof (cases \<open>observable P \<mu>\<close>)
       with NP show ?thesis by blast
     next
       case TParR
-      then show \<open>(\<exists>Q'. (Q\<midarrow>x\<^bold>!\<rightarrow>Q'))\<close>
+      then show \<open>\<exists>Q'. Q\<midarrow>x\<^bold>!\<rightarrow>Q'\<close>
         by blast
     qed
     then show ?thesis using ObsOut
@@ -256,7 +256,7 @@ proof (cases \<open>observable P \<mu>\<close>)
       with NP show ?thesis by blast
     next
       case TParR
-      then show \<open>(\<exists>Q'. (Q\<midarrow>x\<^bold>?\<rightarrow>Q'))\<close>
+      then show \<open>\<exists>Q'. Q\<midarrow>x\<^bold>?\<rightarrow>Q'\<close>
         by blast
     qed
     then show ?thesis using ObsIn
@@ -368,7 +368,7 @@ next
           using ObsOut by blast
         moreover from PF have NP: \<open>\<nexists>P'. P \<midarrow>x\<^bold>!\<rightarrow> P'\<close>
           using ObsOut by blast
-        moreover from * have \<open>(P \<midarrow>x\<^bold>!\<rightarrow> R) \<or> (Q \<midarrow>x\<^bold>!\<rightarrow> R)\<close>
+        moreover from * have \<open>P \<midarrow>x\<^bold>!\<rightarrow> R \<or> Q \<midarrow>x\<^bold>!\<rightarrow> R\<close>
         proof (cases rule: transition.cases)
           case (TRep P')
           then show ?thesis
@@ -400,7 +400,7 @@ next
           using ObsIn by blast
         moreover from PF have NP: \<open>\<nexists>P'. P \<midarrow>x\<^bold>?\<rightarrow> P'\<close>
           using ObsIn by blast
-        moreover from * have \<open>(P \<midarrow>x\<^bold>?\<rightarrow> R) \<or> (Q \<midarrow>x\<^bold>?\<rightarrow> R)\<close>
+        moreover from * have \<open>P \<midarrow>x\<^bold>?\<rightarrow> R \<or> Q \<midarrow>x\<^bold>?\<rightarrow> R\<close>
         proof (cases rule: transition.cases)
           case (TRep P')
           then show ?thesis
@@ -417,7 +417,7 @@ next
   from this(2) show ?case
   proof (cases)
     case (ObsOut x)
-    then obtain R where \<open>\<^bold>!\<^bold>!P \<midarrow>x\<^bold>!\<rightarrow> R\<close> by blast
+    then obtain R where \<open>\<^bold>!(\<^bold>!P) \<midarrow>x\<^bold>!\<rightarrow> R\<close> by blast
     then show ?thesis
     proof (cases)
       case (TRep P')
@@ -426,7 +426,7 @@ next
     qed
   next
     case (ObsIn x)
-    then obtain R where \<open>\<^bold>!\<^bold>!P \<midarrow>x\<^bold>?\<rightarrow> R\<close> by blast
+    then obtain R where \<open>\<^bold>!(\<^bold>!P) \<midarrow>x\<^bold>?\<rightarrow> R\<close> by blast
     then show ?thesis
     proof (cases)
       case (TRep P')
@@ -457,20 +457,20 @@ next
     using names.simps(5) rep_preserves_obs by blast
 qed simp
 
-definition sim (\<open>_ \<sim>[_]\<leadsto> _\<close>) where
+definition sim (\<open>_ \<sim>[_]\<leadsto> _\<close> [60,20,60] 50) where
   \<open>P \<sim>[Rel]\<leadsto> Q \<equiv> (\<forall>\<mu>. observable P \<mu> \<longrightarrow> observable Q \<mu>) \<and>
-                   (\<forall>P'. (P \<midarrow>\<tau>\<rightarrow> P') \<longrightarrow> (\<exists>Q'. (Q \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> Rel))\<close>
+                   (\<forall>P'. P \<midarrow>\<tau>\<rightarrow> P' \<longrightarrow> (\<exists>Q'. Q \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',P') \<in> Rel))\<close>
 
 lemma simCases [consumes 1, case_names Obs Sim]:
   assumes \<open>\<And>\<mu>. observable P \<mu> \<Longrightarrow> observable Q \<mu>\<close>
-    and \<open>\<And>P'. P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. (Q \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> Rel\<close>
+    and \<open>\<And>P'. P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. Q \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',P') \<in> Rel\<close>
   shows \<open>P \<sim>[Rel]\<leadsto> Q\<close>
   unfolding sim_def by (simp add: assms)
 
 lemma sim_E [elim]:
   assumes \<open>P \<sim>[Rel]\<leadsto> Q\<close>
   shows \<open>observable P \<mu> \<Longrightarrow> observable Q \<mu>\<close>
-    and \<open>P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. (Q \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> Rel\<close>
+    and \<open>P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. Q \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',P') \<in> Rel\<close>
   using assms unfolding sim_def by auto
 
 lemma sim_refl [simp]: \<open>Id \<subseteq> R \<Longrightarrow> P \<sim>[R]\<leadsto> P\<close>
@@ -489,13 +489,13 @@ proof (cases rule: simCases)
 next
   fix P'
   assume \<open>P\<midarrow>\<tau>\<rightarrow>P'\<close>
-  then have \<open>\<exists>Q'. (Q\<midarrow>\<tau>\<rightarrow>Q') \<and> (Q', P') \<in> X\<close>
+  then have \<open>\<exists>Q'. Q\<midarrow>\<tau>\<rightarrow>Q' \<and> (Q', P') \<in> X\<close>
     using PQ by auto
-  then obtain Q' where \<open>(Q\<midarrow>\<tau>\<rightarrow>Q')\<close> and X: \<open>(Q', P') \<in> X\<close> by blast
-  then have \<open>\<exists>R'. (R\<midarrow>\<tau>\<rightarrow>R') \<and> (R', Q') \<in> Y\<close> using QR by auto
-  then obtain R' where \<open>(R\<midarrow>\<tau>\<rightarrow>R')\<close> and Y: \<open>(R', Q') \<in> Y\<close> by blast
+  then obtain Q' where \<open>Q\<midarrow>\<tau>\<rightarrow>Q'\<close> and X: \<open>(Q', P') \<in> X\<close> by blast
+  then have \<open>\<exists>R'. R\<midarrow>\<tau>\<rightarrow>R' \<and> (R', Q') \<in> Y\<close> using QR by auto
+  then obtain R' where \<open>R\<midarrow>\<tau>\<rightarrow>R'\<close> and Y: \<open>(R', Q') \<in> Y\<close> by blast
   moreover have \<open>(R', P') \<in> Z\<close> using X Y XYZ by auto
-  ultimately show \<open>\<exists>R'. (R\<midarrow>\<tau>\<rightarrow>R') \<and> (R', P') \<in> Z\<close> by auto
+  ultimately show \<open>\<exists>R'. R\<midarrow>\<tau>\<rightarrow>R' \<and> (R', P') \<in> Z\<close> by auto
 qed
 
 lemma monotonic:
@@ -512,7 +512,7 @@ coinductive_set bisim where
   \<open>P \<sim>[bisim]\<leadsto> Q \<Longrightarrow> (Q,P) \<in> bisim \<Longrightarrow> (P,Q) \<in> bisim\<close>
 monos monoCoinduct
 
-abbreviation bisimulation (\<open>_ \<sim> _\<close> [60,60] 40) where
+abbreviation bisimulation (\<open>_ \<sim> _\<close> [60,60] 50) where
   \<open>P \<sim> Q \<equiv> (P,Q) \<in> bisim\<close>
 
 lemma bisimCoinduct [case_names bisim sym, consumes 1]:
@@ -572,7 +572,7 @@ theorem bisim_equiv: \<open>equivp bisimulation\<close>
 
 subsection \<open>Examples\<close>
 
-lemma \<open>x\<^bold>!.(y\<^bold>!.\<zero>) \<sim> x\<^bold>!.\<zero>\<close> (is \<open>?P \<sim> ?Q\<close>)
+lemma \<open>x\<^bold>!.y\<^bold>!.\<zero> \<sim> x\<^bold>!.\<zero>\<close> (is \<open>?P \<sim> ?Q\<close>)
 proof -
   let ?R = \<open>{(?P, ?Q), (?Q, ?P)}\<close>
   have \<open>(?P, ?Q) \<in> ?R\<close> by simp
@@ -612,34 +612,34 @@ proof -
       assume \<open>R \<midarrow>\<tau>\<rightarrow> R'\<close>
       then have \<open>False\<close>
         using bisim by cases blast+
-      then show \<open>\<exists>S'. (S \<midarrow>\<tau>\<rightarrow> S') \<and> (S',R') \<in> ?R\<close> ..
+      then show \<open>\<exists>S'. S \<midarrow>\<tau>\<rightarrow> S' \<and> (S',R') \<in> ?R\<close> ..
     qed
     then show ?case
       using monotonic by blast
   qed auto
 qed
 
-lemma \<open>\<not> ((x\<^bold>!.(y\<^bold>!.\<zero>)) \<^bold>| (x\<^bold>?.\<zero>) \<sim> ((x\<^bold>!.\<zero>) \<^bold>| (x\<^bold>?.\<zero>)))\<close> (is \<open>\<not> (?P \<sim> ?Q)\<close>)
+lemma \<open>\<not> (x\<^bold>!.y\<^bold>!.\<zero> \<^bold>| x\<^bold>?.\<zero> \<sim> x\<^bold>!.\<zero> \<^bold>| x\<^bold>?.\<zero>)\<close> (is \<open>\<not> (?P \<sim> ?Q)\<close>)
 proof
   assume \<open>?P \<sim> ?Q\<close>
   then show False
   proof
     fix P Q
     assume \<open>Q \<sim> P\<close>
-    let ?P' = \<open>(y\<^bold>!.\<zero>) \<^bold>| \<zero>\<close>
+    let ?P' = \<open>y\<^bold>!.\<zero> \<^bold>| \<zero>\<close>
     assume \<open>?P = P\<close> \<open>?Q = Q\<close>
     moreover assume \<open>P \<sim>[bisim]\<leadsto> Q\<close>
     ultimately have \<open>?P \<sim>[bisim]\<leadsto> ?Q\<close>
       by simp
-    then have \<open>\<And>P'. ?P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. (?Q \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> bisim\<close>
+    then have \<open>\<And>P'. ?P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. ?Q \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',P') \<in> bisim\<close>
       using sim_E by blast
     moreover have \<open>?P \<midarrow>\<tau>\<rightarrow> ?P'\<close>
       by auto
-    ultimately have \<open>\<exists>Q'. (?Q \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',?P') \<in> bisim\<close>
+    ultimately have \<open>\<exists>Q'. ?Q \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',?P') \<in> bisim\<close>
       by auto
-    then obtain Q' where \<open>(?Q \<midarrow>\<tau>\<rightarrow> Q')\<close> and *: \<open>(Q',?P') \<in> bisim\<close>
+    then obtain Q' where \<open>?Q \<midarrow>\<tau>\<rightarrow> Q'\<close> and *: \<open>(Q',?P') \<in> bisim\<close>
       by blast
-    moreover from this have \<open>Q' = (\<zero> \<^bold>| \<zero>)\<close>
+    moreover from this have \<open>Q' = \<zero> \<^bold>| \<zero>\<close>
       using in_no_tau out_no_tau
     proof cases
       case (TCommL x' P' Q'')
@@ -655,9 +655,9 @@ proof
     then show False
     proof
       fix R S
-      assume \<open>(\<zero> \<^bold>| \<zero>) = R\<close> \<open>?P' = S\<close>
+      assume \<open>\<zero> \<^bold>| \<zero> = R\<close> \<open>?P' = S\<close>
       moreover assume \<open>S \<sim> R\<close>
-      ultimately have \<open>?P' \<sim>[bisim]\<leadsto> (\<zero> \<^bold>| \<zero>)\<close> by fast
+      ultimately have \<open>?P' \<sim>[bisim]\<leadsto> \<zero> \<^bold>| \<zero>\<close> by fast
       then have \<open>observable ?P' (OOut y) \<Longrightarrow> observable (\<zero> \<^bold>| \<zero>) (OOut y)\<close>
         using sim_E by blast
       then have \<open>observable (\<zero> \<^bold>| \<zero>) (OOut y)\<close> by blast
@@ -668,7 +668,7 @@ proof
   qed
 qed
 
-lemma \<open>\<^bold>!((x\<^bold>!.\<zero>) \<^bold>| (x\<^bold>?.\<zero>)) \<sim> (\<^bold>!(x\<^bold>!.\<zero>)) \<^bold>| (\<^bold>!(x\<^bold>?.\<zero>))\<close> (is \<open>?P \<sim> ?Q\<close>)
+lemma \<open>\<^bold>!(x\<^bold>!.\<zero> \<^bold>| x\<^bold>?.\<zero>) \<sim> \<^bold>!x\<^bold>!.\<zero> \<^bold>| \<^bold>!x\<^bold>?.\<zero>\<close> (is \<open>?P \<sim> ?Q\<close>)
 proof -
   let ?R = \<open>{(?P, ?Q), (?Q, ?P)}\<close>
   have \<open>(?P, ?Q) \<in> ?R\<close> by simp
@@ -748,12 +748,12 @@ proof -
     next
       fix R'
       assume \<open>R \<midarrow>\<tau>\<rightarrow> R'\<close>
-      then show \<open>\<exists>S'. (S \<midarrow>\<tau>\<rightarrow> S') \<and> (S',R') \<in> ?R\<close>
+      then show \<open>\<exists>S'. S \<midarrow>\<tau>\<rightarrow> S' \<and> (S',R') \<in> ?R\<close>
         using bisim
       proof (cases S)
         case (Composition P Q)
         then have S: \<open>S = ?Q\<close> using bisim by simp
-        then have \<open>S \<midarrow>\<tau>\<rightarrow> (\<zero> \<^bold>| \<^bold>!(x\<^bold>!.\<zero>)) \<^bold>| (\<zero> \<^bold>| \<^bold>!(x\<^bold>?.\<zero>))\<close>
+        then have \<open>S \<midarrow>\<tau>\<rightarrow> (\<zero> \<^bold>| \<^bold>!x\<^bold>!.\<zero>) \<^bold>| (\<zero> \<^bold>| \<^bold>!x\<^bold>?.\<zero>)\<close>
           by blast
         then show ?thesis
           sorry
@@ -787,15 +787,15 @@ primrec ctx_holes :: \<open>ctx \<Rightarrow> nat\<close> where
 
 abbreviation \<open>wf_ctx C \<equiv> ctx_holes C = 1\<close>
 
-primrec apply_ctx (\<open>_\<lbrakk>_\<rbrakk>\<close> [50, 50] 60) where
+primrec apply_ctx (\<open>_\<lbrakk>_\<rbrakk>\<close> [400,100] 200) where
   \<open>apply_ctx CHole P = P\<close>
-| \<open>apply_ctx CInaction P = Inaction\<close>
-| \<open>apply_ctx (COut x C) P = Out x (apply_ctx C P)\<close>
-| \<open>apply_ctx (CIn x C) P = In x (apply_ctx C P)\<close>
-| \<open>apply_ctx (CComposition C1 C2) P = Composition (apply_ctx C1 P) (apply_ctx C2 P)\<close>
-| \<open>apply_ctx (CReplicate C) P = Replicate (apply_ctx C P)\<close>
+| \<open>apply_ctx CInaction P = \<zero>\<close>
+| \<open>apply_ctx (COut x C) P = x\<^bold>!.C\<lbrakk>P\<rbrakk>\<close>
+| \<open>apply_ctx (CIn x C) P = x\<^bold>?.C\<lbrakk>P\<rbrakk>\<close>
+| \<open>apply_ctx (CComposition C\<^sub>1 C\<^sub>2) P = C\<^sub>1\<lbrakk>P\<rbrakk> \<^bold>| C\<^sub>2\<lbrakk>P\<rbrakk>\<close>
+| \<open>apply_ctx (CReplicate C) P = \<^bold>!C\<lbrakk>P\<rbrakk>\<close>
 
-lemma apply_ctx_no_holes [simp]: \<open>ctx_holes C = 0 \<Longrightarrow> apply_ctx C P = apply_ctx C Q\<close>
+lemma apply_ctx_no_holes [simp]: \<open>ctx_holes C = 0 \<Longrightarrow> C\<lbrakk>P\<rbrakk> = C\<lbrakk>Q\<rbrakk>\<close>
   by (induction C) simp_all
 
 primrec apply_ctx_ctx where
@@ -837,13 +837,13 @@ section \<open>Strong barbed congruence\<close>
 coinductive_set sbcong where
   \<open>(\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>) \<Longrightarrow> (P,Q) \<in> sbcong\<close>
 
-abbreviation sbcongruence (\<open>_ \<simeq> _\<close> [50, 50] 55) where
+abbreviation sbcongruence (\<open>_ \<simeq> _\<close> [50,50] 30) where
   \<open>P \<simeq> Q \<equiv> (P,Q) \<in> sbcong\<close>
 
 lemma sbcong_E [elim]: \<open>P \<simeq> Q \<Longrightarrow> wf_ctx C \<Longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
   by (meson sbcong.cases)
 
-lemma sbcong_out [simp]: \<open>P \<simeq> Q \<Longrightarrow> (x\<^bold>!.P) \<simeq> (x\<^bold>!.Q)\<close>
+lemma sbcong_out [simp]: \<open>P \<simeq> Q \<Longrightarrow> x\<^bold>!.P \<simeq> x\<^bold>!.Q\<close>
 proof (coinduction)
   case sbcong
   then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
@@ -855,13 +855,13 @@ proof (coinduction)
     assume \<open>wf_ctx C\<close>
     then have \<open>wf_ctx ?C\<close>
       by simp
-    moreover have \<open>C\<lbrakk>x\<^bold>!.P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>x\<^bold>!.P\<rbrakk> = ?C\<lbrakk>P\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
         by (cases \<open>wf_ctx C1\<close>) simp_all
     qed simp_all
-    moreover have \<open>C\<lbrakk>x\<^bold>!.Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>x\<^bold>!.Q\<rbrakk> = ?C\<lbrakk>Q\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
@@ -874,7 +874,7 @@ proof (coinduction)
     by blast
 qed
 
-lemma sbcong_in [simp]: \<open>P \<simeq> Q \<Longrightarrow> (x\<^bold>?.P) \<simeq> (x\<^bold>?.Q)\<close>
+lemma sbcong_in [simp]: \<open>P \<simeq> Q \<Longrightarrow> x\<^bold>?.P \<simeq> x\<^bold>?.Q\<close>
 proof (coinduction)
   case sbcong
   then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
@@ -886,13 +886,13 @@ proof (coinduction)
     assume \<open>wf_ctx C\<close>
     then have \<open>wf_ctx ?C\<close>
       by simp
-    moreover have \<open>C\<lbrakk>x\<^bold>?.P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>x\<^bold>?.P\<rbrakk> = ?C\<lbrakk>P\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
         by (cases \<open>wf_ctx C1\<close>) simp_all
     qed simp_all
-    moreover have \<open>C\<lbrakk>x\<^bold>?.Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>x\<^bold>?.Q\<rbrakk> = ?C\<lbrakk>Q\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
@@ -905,7 +905,7 @@ proof (coinduction)
     by blast
 qed
 
-lemma sbcong_rep [simp]: \<open>P \<simeq> Q \<Longrightarrow> (\<^bold>!P) \<simeq> (\<^bold>!Q)\<close>
+lemma sbcong_rep [simp]: \<open>P \<simeq> Q \<Longrightarrow> \<^bold>!P \<simeq> \<^bold>!Q\<close>
 proof (coinduction)
   case sbcong
   then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
@@ -917,13 +917,13 @@ proof (coinduction)
     assume \<open>wf_ctx C\<close>
     then have \<open>wf_ctx ?C\<close>
       by simp
-    moreover have \<open>C\<lbrakk>\<^bold>!P\<rbrakk> = (?C\<lbrakk>P\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>\<^bold>!P\<rbrakk> = ?C\<lbrakk>P\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
         by (cases \<open>wf_ctx C1\<close>) simp_all
     qed simp_all
-    moreover have \<open>C\<lbrakk>\<^bold>!Q\<rbrakk> = (?C\<lbrakk>Q\<rbrakk>)\<close>
+    moreover have \<open>C\<lbrakk>\<^bold>!Q\<rbrakk> = ?C\<lbrakk>Q\<rbrakk>\<close>
     proof (induction C)
       case (CComposition C1 C2)
       then show ?case
@@ -944,29 +944,29 @@ proof (safe)
   moreover assume \<open>wf_ctx C\<close>
   ultimately show \<open>C\<lbrakk>P\<rbrakk> \<simeq> C\<lbrakk>Q\<rbrakk>\<close>
   proof (induction C)
-    case (CComposition C1 C2)
+    case (CComposition C\<^sub>1 C\<^sub>2)
     then show ?case
-    proof (cases \<open>wf_ctx C1\<close>)
+    proof (cases \<open>wf_ctx C\<^sub>1\<close>)
       case True
-      then have \<open>C1\<lbrakk>P\<rbrakk> \<simeq> C1\<lbrakk>Q\<rbrakk>\<close>
+      then have \<open>C\<^sub>1\<lbrakk>P\<rbrakk> \<simeq> C\<^sub>1\<lbrakk>Q\<rbrakk>\<close>
         using CComposition by simp
-      moreover from True have *: \<open>ctx_holes C2 = 0\<close>
+      moreover from True have *: \<open>ctx_holes C\<^sub>2 = 0\<close>
         using CComposition by simp
-      then have \<open>C2\<lbrakk>P\<rbrakk> = C2\<lbrakk>\<zero>\<rbrakk>\<close>
+      then have \<open>C\<^sub>2\<lbrakk>P\<rbrakk> = C\<^sub>2\<lbrakk>\<zero>\<rbrakk>\<close>
         by simp
-      then have \<open>CComposition C1 C2\<lbrakk>P\<rbrakk> = Composition (C1\<lbrakk>P\<rbrakk>) (C2\<lbrakk>\<zero>\<rbrakk>)\<close>
+      then have \<open>CComposition C\<^sub>1 C\<^sub>2\<lbrakk>P\<rbrakk> = C\<^sub>1\<lbrakk>P\<rbrakk> \<^bold>| C\<^sub>2\<lbrakk>\<zero>\<rbrakk>\<close>
         by simp
-      moreover from * have \<open>C2\<lbrakk>Q\<rbrakk> = C2\<lbrakk>\<zero>\<rbrakk>\<close>
+      moreover from * have \<open>C\<^sub>2\<lbrakk>Q\<rbrakk> = C\<^sub>2\<lbrakk>\<zero>\<rbrakk>\<close>
         by simp
-      then have \<open>CComposition C1 C2\<lbrakk>Q\<rbrakk> = Composition (C1\<lbrakk>Q\<rbrakk>) (C2\<lbrakk>\<zero>\<rbrakk>)\<close>
+      then have \<open>CComposition C\<^sub>1 C\<^sub>2\<lbrakk>Q\<rbrakk> = C\<^sub>1\<lbrakk>Q\<rbrakk> \<^bold>| C\<^sub>2\<lbrakk>\<zero>\<rbrakk>\<close>
         by simp
-      moreover have \<open>(C1\<lbrakk>P\<rbrakk> \<^bold>| (C2\<lbrakk>\<zero>\<rbrakk>)) \<simeq> (C1\<lbrakk>Q\<rbrakk> \<^bold>| (C2\<lbrakk>\<zero>\<rbrakk>))\<close>
+      moreover have \<open>C\<^sub>1\<lbrakk>P\<rbrakk> \<^bold>| C\<^sub>2\<lbrakk>\<zero>\<rbrakk> \<simeq> C\<^sub>1\<lbrakk>Q\<rbrakk> \<^bold>| C\<^sub>2\<lbrakk>\<zero>\<rbrakk>\<close>
         sorry
       ultimately show ?thesis
         by simp
     next
       case False
-      then have \<open>ctx_holes C1 = 0\<close>
+      then have \<open>ctx_holes C\<^sub>1 = 0\<close>
         using CComposition by simp
       then show ?thesis
         sorry
@@ -978,7 +978,7 @@ lemma sbcong_sym: \<open>symp sbcongruence\<close>
 proof
   fix P Q
   assume \<open>P \<simeq> Q\<close>
-  then have *: \<open>(\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>)\<close>
+  then have *: \<open>\<forall>C. wf_ctx C \<longrightarrow> C\<lbrakk>P\<rbrakk> \<sim> C\<lbrakk>Q\<rbrakk>\<close>
     by cases auto
   show \<open>Q \<simeq> P\<close>
   proof (coinduction)
@@ -1016,7 +1016,7 @@ proof -
   then have \<open>P \<sim>[bisim]\<leadsto> P\<close>
     by fast
   then have \<open>\<And>\<mu>. observable P \<mu> \<Longrightarrow> observable P \<mu>\<close>
-    \<open>\<And>P'. P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. (P \<midarrow>\<tau>\<rightarrow> Q') \<and> (Q',P') \<in> bisim\<close>
+    \<open>\<And>P'. P \<midarrow>\<tau>\<rightarrow> P' \<Longrightarrow> \<exists>Q'. P \<midarrow>\<tau>\<rightarrow> Q' \<and> (Q',P') \<in> bisim\<close>
     using sim_E by blast+
   then have \<open>P \<sim>[bisim]\<leadsto> P \<^bold>| \<zero>\<close>
     unfolding sim_def
@@ -1028,7 +1028,7 @@ qed
 lemma sbcong_largest: \<open>congruence S \<and> S \<subseteq> bisim \<Longrightarrow> S \<subseteq> sbcong\<close>
   using congruence_def sbcong.simps by fastforce
 
-theorem challenge: \<open>P \<simeq> Q \<longleftrightarrow> (\<forall>R. (P \<^bold>| R) \<sim> (Q \<^bold>| R))\<close>
+theorem challenge: \<open>P \<simeq> Q \<longleftrightarrow> (\<forall>R. P \<^bold>| R \<sim> Q \<^bold>| R)\<close>
 proof (safe)
   fix R
   let ?C = \<open>CComposition CHole (process_to_ctx R)\<close>
@@ -1040,7 +1040,7 @@ proof (safe)
   then show \<open>P \<^bold>| R \<sim> Q \<^bold>| R\<close>
     by (simp add: congruence_def)
 next
-  assume *: \<open>\<forall>R.  P\<^bold>|R \<sim> Q\<^bold>|R\<close>
+  assume *: \<open>\<forall>R. P \<^bold>| R \<sim> Q \<^bold>| R\<close>
   show \<open>P \<simeq> Q\<close>
   proof (rule sbcong.intros, safe)
     fix C
